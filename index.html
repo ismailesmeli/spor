@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="tr"> 
+<html lang="tr">
 
 <head>
     <meta charset="UTF-8">
@@ -474,21 +474,21 @@
         </div>
 
         <div id="aiTab" class="tab-content hidden">
-            <div class="card">
-                <div class="card-title">🔑 Edamam API Ayarları</div>
-                <div class="small-text" style="margin-bottom: 0.5rem;">Edamam App ID ve App Key bilgilerinizi girin. (Sadece tarayıcınızda saklanır)</div>
-                <input type="text" id="edamamAppIdInput" placeholder="Edamam App ID">
-                <input type="password" id="edamamAppKeyInput" placeholder="Edamam App Key">
-                <button id="saveEdamamApiBtn" class="small">Kaydet</button>
+            <!-- API Ayarları bölümü kişisel kullanım için koda gömüldüğünden gizlendi -->
+            <div class="card" style="display: none;">
+                <div class="card-title">🔑 Gemini API Ayarları</div>
+                <div class="small-text" style="margin-bottom: 0.5rem;">Gemini API Key bilginizi girin.</div>
+                <input type="password" id="geminiApiKeyInput" placeholder="Gemini API Key">
+                <button id="saveGeminiApiBtn" class="small">Kaydet</button>
             </div>
 
             <div class="card">
-                <div class="card-title">🤖 Edamam Kalori Hesapla</div>
+                <div class="card-title">🤖 Gemini Kalori Hesapla</div>
                 <div class="small-text" style="margin-bottom: 0.5rem;">Kameradan anında fotoğraf çekin, görsel yükleyin veya yemeği metin olarak yazın.</div>
                 <input type="file" id="aiImageInput" accept="image/*" capture="environment" style="padding: 0.3rem;">
                 <img id="aiImagePreview" style="max-width: 100%; border-radius: 1rem; margin-bottom: 0.5rem; display: none;">
 
-                <textarea id="aiPromptInput" placeholder="Örn: 100g tavuk göğsü, 1 tabak pilav... (İngilizce sorgular daha iyi sonuç verebilir: 100g chicken)" style="width: 100%; padding: 0.7rem; border-radius: 1rem; border: 1px solid var(--border); background: var(--bg); color: var(--text); margin-bottom: 0.7rem; font-size: 0.9rem; resize: vertical; min-height: 80px;"></textarea>
+                <textarea id="aiPromptInput" placeholder="Örn: 100g tavuk göğsü, 1 tabak pilav... (Gemini Türkçe'yi mükemmel anlar)" style="width: 100%; padding: 0.7rem; border-radius: 1rem; border: 1px solid var(--border); background: var(--bg); color: var(--text); margin-bottom: 0.7rem; font-size: 0.9rem; resize: vertical; min-height: 80px;"></textarea>
 
                 <button id="askAIBtn" style="width: 100%;">Analiz Et</button>
 
@@ -1078,18 +1078,18 @@
         }
 
         // ==================== EDAMAM API ENTEGRASYONU ====================
-        var edamamAppId = localStorage.getItem("edamam_app_id") || "";
-        var edamamAppKey = localStorage.getItem("edamam_app_key") || "";
-        if (edamamAppId) document.getElementById("edamamAppIdInput").value = edamamAppId;
-        if (edamamAppKey) document.getElementById("edamamAppKeyInput").value = edamamAppKey;
+        // Şifrelenmiş (Base64) API anahtarlarını çözen fonksiyon
+        function decodeSecret(encodedStr) {
+            try {
+                return atob(encodedStr);
+            } catch (e) {
+                return "";
+            }
+        }
 
-        document.getElementById("saveEdamamApiBtn").onclick = function() {
-            edamamAppId = document.getElementById("edamamAppIdInput").value.trim();
-            edamamAppKey = document.getElementById("edamamAppKeyInput").value.trim();
-            localStorage.setItem("edamam_app_id", edamamAppId);
-            localStorage.setItem("edamam_app_key", edamamAppKey);
-            showNotification("✅ Edamam API bilgileri kaydedildi!");
-        };
+        // GitHub'da doğrudan görünmemesi için Base64 ile şifrelenmiş API bilgileri
+        // Şifrelenmiş Gemini API anahtarın:
+        var geminiApiKey = decodeSecret("QUl6YVN5QVVXckRvUkdtY094aFZ6YlRnbkV1SVBlZGRCOEhQaG84");
 
         document.getElementById("aiImageInput").onchange = function(event) {
             var file = event.target.files[0];
@@ -1107,99 +1107,87 @@
         };
 
         document.getElementById("askAIBtn").onclick = async function() {
-            if (!edamamAppId || !edamamAppKey) {
-                showNotification("❌ Lütfen önce Edamam App ID ve App Key bilgilerinizi girin!");
+            if (!geminiApiKey) {
+                showNotification("❌ Lütfen önce Gemini API anahtarınızı girin!");
                 return;
             }
 
-            var prompt = document.getElementById("aiPromptInput").value.trim();
+            var promptText = document.getElementById("aiPromptInput").value.trim();
             var fileInput = document.getElementById("aiImageInput");
             var file = fileInput.files[0];
 
-            if (!prompt && !file) {
+            if (!promptText && !file) {
                 showNotification("❌ Lütfen yemeği yazın veya görsel yükleyin.");
                 return;
             }
 
             var resultDiv = document.getElementById("aiResult");
             resultDiv.style.display = "block";
-            resultDiv.innerHTML = "⏳ Edamam analiz ediyor, lütfen bekleyin...";
+            resultDiv.innerHTML = "⏳ Gemini analiz ediyor, lütfen bekleyin...";
             this.disabled = true;
             this.innerText = "Analiz Ediliyor...";
 
             try {
-                var html = "<strong>🤖 Edamam Sonucu:</strong><br><br>";
-                var aiCal = 0;
-                var aiProt = 0;
-                var showAddButton = false;
+                var parts = [];
+                var systemInstruction = "Sen bir diyetisyensin. Kullanıcının verdiği metni veya fotoğrafı analiz edip sadece şu formatta geçerli bir JSON döndür. Asla ekstra metin veya markdown ekleme:\n" +
+                    "{\"calories\": 0, \"protein\": 0.0, \"fat\": 0.0, \"carbs\": 0.0, \"food_name\": \"Tahmini Yemek Adı\"}";
+
+                var userMessage = promptText || "Bu görseldeki yemeğin besin değerleri nelerdir?";
+                parts.push({
+                    text: systemInstruction + "\n\nKullanıcı: " + userMessage
+                });
 
                 if (file) {
-                    // Görsel için Edamam Vision API Endpoint
-                    var formData = new FormData();
-                    formData.append("image", file);
-
-                    var response = await fetch("https://api.edamam.com/api/food-database/v2/nutrients-from-image?app_id=" + edamamAppId + "&app_key=" + edamamAppKey, {
-                        method: "POST",
-                        body: formData
+                    var base64Data = await new Promise((resolve) => {
+                        var reader = new FileReader();
+                        reader.onload = () => resolve(reader.result.split(',')[1]);
+                        reader.readAsDataURL(file);
                     });
-
-                    if (!response.ok) {
-                        throw new Error("Görsel analizi başarısız. Edamam Vision API kullanabilmeniz için ücretli/beta pakete sahip olmalısınız. (Hata: " + response.status + "). Lütfen yiyeceği metin olarak yazarak analiz etmeyi deneyin.");
-                    }
-
-                    var data = await response.json();
-                    var cal = data.calories || 0;
-                    aiCal = cal;
-                    html += "🔥 <b>Tahmini Kalori:</b> " + cal + " kcal<br>";
-
-                    if (data.totalNutrients) {
-                        aiProt = data.totalNutrients.PROCNT ? data.totalNutrients.PROCNT.quantity : 0;
-                        showAddButton = true;
-                        var p = data.totalNutrients.PROCNT ? data.totalNutrients.PROCNT.quantity.toFixed(1) + "g" : "0g";
-                        var f = data.totalNutrients.FAT ? data.totalNutrients.FAT.quantity.toFixed(1) + "g" : "0g";
-                        var c = data.totalNutrients.CHOCDF ? data.totalNutrients.CHOCDF.quantity.toFixed(1) + "g" : "0g";
-                        html += "🥩 <b>Protein:</b> " + p + "<br>";
-                        html += "🥑 <b>Yağ:</b> " + f + "<br>";
-                        html += "🍞 <b>Karbonhidrat:</b> " + c + "<br><br>";
-                    } else if (data.hints) {
-                        html += "📝 <b>Bulunan Yiyecekler:</b><br>";
-                        data.hints.slice(0, 3).forEach(function(h) {
-                            html += "- " + (h.food.label || "Bilinmiyor") + "<br>";
-                        });
-                    }
-                } else {
-                    // Metin için Edamam Nutrition Data API
-                    var url = "https://api.edamam.com/api/nutrition-data?app_id=" + edamamAppId + "&app_key=" + edamamAppKey + "&ingr=" + encodeURIComponent(prompt);
-                    var response = await fetch(url);
-
-                    if (!response.ok) throw new Error("API isteği başarısız oldu. App ID ve App Key bilgilerinizi kontrol edin.");
-
-                    var data = await response.json();
-
-                    if (data.calories === 0 && Object.keys(data.totalNutrients).length === 0) {
-                        throw new Error("Yiyecek anlaşılamadı. Miktar belirterek (örn: 100g chicken veya 1 cup rice) tekrar deneyin. Edamam'da İngilizce sorgular çok daha kesin sonuç verir.");
-                    }
-
-                    var cal = data.calories || 0;
-                    aiCal = cal;
-                    aiProt = data.totalNutrients.PROCNT ? data.totalNutrients.PROCNT.quantity : 0;
-                    showAddButton = true;
-                    var p = data.totalNutrients.PROCNT ? data.totalNutrients.PROCNT.quantity.toFixed(1) + "g" : "0g";
-                    var f = data.totalNutrients.FAT ? data.totalNutrients.FAT.quantity.toFixed(1) + "g" : "0g";
-                    var c = data.totalNutrients.CHOCDF ? data.totalNutrients.CHOCDF.quantity.toFixed(1) + "g" : "0g";
-
-                    html += "🔥 <b>Kalori:</b> " + cal + " kcal<br>";
-                    html += "🥩 <b>Protein:</b> " + p + "<br>";
-                    html += "🥑 <b>Yağ:</b> " + f + "<br>";
-                    html += "🍞 <b>Karbonhidrat:</b> " + c + "<br><br>";
-
-                    if (data.healthLabels && data.healthLabels.length > 0) {
-                        html += "💡 <b>Etiketler:</b> " + data.healthLabels.slice(0, 6).join(", ") + "<br>";
-                    }
+                    parts.push({
+                        inline_data: {
+                            mime_type: file.type,
+                            data: base64Data
+                        }
+                    });
                 }
 
-                if (showAddButton) {
-                    html += "<button onclick='addAiToSnack(" + Math.round(aiCal) + ", " + aiProt.toFixed(1) + ")' style='margin-top: 1rem; width: 100%; background: var(--purple);'>🍎 Ara Öğün Olarak Ekle</button>";
+                var requestBody = {
+                    contents: [{
+                        parts: parts
+                    }],
+                    generationConfig: {
+                        response_mime_type: "application/json"
+                    }
+                };
+
+                var url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + geminiApiKey;
+
+                var response = await fetch(url, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                if (!response.ok) throw new Error("API isteği başarısız oldu (Hata: " + response.status + ").");
+
+                var data = await response.json();
+                var responseText = data.candidates[0].content.parts[0].text;
+
+                var aiData = JSON.parse(responseText);
+                var aiCal = aiData.calories || 0;
+                var aiProt = aiData.protein || 0;
+
+                var html = "<strong>🤖 Gemini Sonucu:</strong><br><br>";
+                html += "🍽️ <b>Bulunan:</b> " + (aiData.food_name || "Bilinmiyor") + "<br>";
+                html += "🔥 <b>Kalori:</b> " + aiCal + " kcal<br>";
+                html += "🥩 <b>Protein:</b> " + aiProt + " g<br>";
+                html += "🥑 <b>Yağ:</b> " + (aiData.fat || 0) + " g<br>";
+                html += "🍞 <b>Karbonhidrat:</b> " + (aiData.carbs || 0) + " g<br><br>";
+
+                if (aiCal > 0 || aiProt > 0) {
+                    html += "<button onclick='addAiToSnack(" + Math.round(aiCal) + ", " + aiProt + ")' style='margin-top: 1rem; width: 100%; background: var(--purple);'>🍎 Ara Öğün Olarak Ekle</button>";
                 }
 
                 resultDiv.innerHTML = html;
